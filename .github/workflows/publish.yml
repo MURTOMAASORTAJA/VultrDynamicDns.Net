@@ -26,7 +26,7 @@ jobs:
       run: dotnet publish --configuration Release --output ./publish
 
     - name: Zip
-      uses: montudor/action-zip@v0.2.0
+      uses: montudor/action-zip@v1.0.0
       with:
         files: ./bin/Debug/net7.0/publish/**
         filename: VultrDynamicDns.Net.zip
