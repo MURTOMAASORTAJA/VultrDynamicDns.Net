@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
 
 jobs:
-  build:
+  build-and-publish:
     runs-on: ubuntu-latest
 
     steps:
@@ -26,25 +26,41 @@ jobs:
       run: dotnet publish --configuration Release --output ./publish
 
     - name: Zip
-      uses: montudor/action-zip@v1.0.0
+      uses: montudor/action-zip@v1
       with:
-        files: ./bin/Debug/net7.0/publish/**
-        filename: VultrDynamicDns.Net.zip
+        args: zip -qq -r VultrDynamicDns.Net.zip ./bin/Debug/net7.0/publish/
 
-    - name: Install Node.js
-      uses: actions/setup-node@v2
-      with:
-        node-version: '14.x'
+    - name: Get version number
+      id: get_version
+      run: echo "::set-output name=version::$(cat version.txt)"
 
-    - name: Install semantic-release
-      run: npm install -g semantic-release @semantic-release/git @semantic-release/changelog
+    - name: Increment version number
+      id: increment_version
+      run: echo "::set-output name=version::$(echo ${{ steps.get_version.outputs.version }} | awk -F. '{$NF = $NF + 1;} 1' OFS=.)"
 
-    - name: Configure semantic-release
+    - name: Update version number
+      run: echo "${{ steps.increment_version.outputs.version }}" > version.txt
+
+    - name: Create Release
+      id: create_release
+      uses: actions/create-release@v1
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      run: npx semantic-release-cli setup
+      with:
+        tag_name: v${{ steps.increment_version.outputs.version }}
+        release_name: Release v${{ steps.increment_version.outputs.version }}
+        body: |
+          This is release v${{ steps.increment_version.outputs.version }} of VultrDynamicDns.Net app.
+        draft: false
+        prerelease: false
 
-    - name: Run semantic-release
+    - name: Upload Release Asset
+      id: upload-release-asset
+      uses: actions/upload-release-asset@v1
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      run: npx semantic-release
+      with:
+        upload_url: ${{ steps.create_release.outputs.upload_url }}
+        asset_path: ./VultrDynamicDns.Net.zip
+        asset_name: VultrDynamicDns.Net.zip
+        asset_content_type: application/zip
